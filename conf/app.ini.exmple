@@ -1,0 +1,15 @@
+RUN_MODE = debug
+[app]
+JWT_SECRET = 
+
+[server]
+HTTP_PORT = 8080
+READ_TIMEOUT = 60
+WRITE_TIMEOUT = 60
+
+[database]
+; TYPE = mysql
+NAME = project_manager
+USER = root
+PASSWORD = 
+HOST = 
