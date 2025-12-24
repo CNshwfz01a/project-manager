@@ -38,19 +38,14 @@ func NewRspError(code int, err error) *RspError {
 
 // Success http 成功
 func Success(c *gin.Context, data any) {
-	c.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"msg":  "success",
-		"data": data,
-	})
+	c.JSON(http.StatusOK, data)
 }
 
 // Err http 错误
 func Err(c *gin.Context, err *RspError, data any) {
-	c.JSON(http.StatusOK, gin.H{
-		"code": err.Code(),
-		"msg":  err.Error(),
-		"data": data,
+	c.JSON(err.Code(), gin.H{
+		"code":  err.Code(),
+		"error": err.Error(),
 	})
 }
 
@@ -62,7 +57,7 @@ func ReloadErr(err any) *RspError {
 		if !ok {
 			return &RspError{
 				code: SystemErr,
-				err:  fmt.Errorf("unknow error"),
+				err:  fmt.Errorf("unknown error"),
 			}
 		}
 		return &RspError{
@@ -81,4 +76,19 @@ func NewMySqlError(err error) *RspError {
 // NewValidatorError 验证错误
 func NewValidatorError(err error) *RspError {
 	return NewRspError(ValidatorErr, err)
+}
+
+// 资源冲突 409
+func NewConflictError(err error) *RspError {
+	return NewRspError(http.StatusConflict, err)
+}
+
+// 无权操作 403
+func NewUnauthorizedError(err error) *RspError {
+	return NewRspError(http.StatusForbidden, err)
+}
+
+// 资源不存在 404
+func NewNotFoundError() *RspError {
+	return NewRspError(http.StatusNotFound, fmt.Errorf("资源不存在"))
 }

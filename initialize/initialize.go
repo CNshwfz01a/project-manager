@@ -19,6 +19,10 @@ func InitDB() error {
 	//自动迁移
 	db.AutoMigrate(
 		&model.User{},
+		&model.Role{},
+		&model.Project{},
+		&model.Team{},
+		&model.TeamProject{},
 	)
 
 	//初始化默认权限和角色
@@ -33,8 +37,8 @@ func InitDB() error {
 
 func initRoleAndPermission(db *gorm.DB) error {
 	//在这里初始化默认的权限和角色
-	//user表中写入一个默认的管理员用户admin 初始密码为admindamin使用md5加密
-	var password = md5.Sum([]byte("admindamin"))
+	//user表中写入一个默认的管理员用户admin 初始密码为adminadmin使用md5加密
+	var password = md5.Sum([]byte("adminadmin"))
 	//检查用户是否存在
 	var count int64
 	db.Model(&model.User{}).Where("username = ?", "admin").Count(&count)
@@ -59,7 +63,7 @@ func initRoleAndPermission(db *gorm.DB) error {
 	db.Model(&model.Role{}).Where("name = ?", "admin").First(&adminRole)
 	db.Model(&adminUser).Association("Roles").Append(&adminRole)
 
-	//Role表中插入team_lead角色和mormal_user角色
+	//Role表中插入team_lead角色和normal_user角色
 	pkg.Insert("roles", &model.Role{
 		Name: "normal_user",
 		Type: "System",

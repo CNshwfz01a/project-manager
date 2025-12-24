@@ -3,6 +3,7 @@ package controllers
 import (
 	"project-manager/model/request"
 	"project-manager/service"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,9 +27,15 @@ func (m *RoleController) Add(c *gin.Context) {
 }
 
 // UpdateRole 更新角色信息
-func (m *RoleController) Update(c *gin.Context) {
-}
+// func (m *RoleController) Update(c *gin.Context) {
+// }
 
 // DeleteRole 删除角色
 func (m *RoleController) Delete(c *gin.Context) {
+	req := new(request.RoleDeleteReq)
+	var id, _ = strconv.Atoi(c.Param("id"))
+	req.ID = uint(id)
+	Handle(c, req, func() (any, any) {
+		return service.Role.Delete(c, req)
+	})
 }

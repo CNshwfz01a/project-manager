@@ -8,4 +8,6 @@ import (
 var (
 	ReqAssertErr = pkg.NewRspError(pkg.SystemErr, fmt.Errorf("请求异常"))
 	Role         = &RoleService{}
+	User         = &UserService{}
+	Team         = &TeamService{}
 )

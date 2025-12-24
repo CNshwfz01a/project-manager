@@ -11,7 +11,11 @@ type RoleListReq struct {
 }
 
 type RoleAddReq struct {
-	Name string `json:"name" binding:"required"`
-	Type string `json:"type" binding:"required"`
+	Name string `json:"name" validate:"required,min=1,max=50"`
+	// Type string `json:"type" validate:"required"`
 	Desc string `json:"desc"`
+}
+
+type RoleDeleteReq struct {
+	ID uint `uri:"id" validate:"required"`
 }

@@ -3,6 +3,10 @@ package response
 import "project-manager/model"
 
 type RoleListRsp struct {
+	Roles []model.Role `json:"list"`
 	Total int64        `json:"total"`
-	Roles []model.Role `json:"roles"`
+}
+
+type RoleAddRsp struct {
+	Role model.Role `json:"role"`
 }
