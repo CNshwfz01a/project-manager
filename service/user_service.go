@@ -28,13 +28,13 @@ func (s *UserService) Login(c *gin.Context, req any) (data any, repError any) {
 	user, err := model.UserData.GetByUsername(r.Username)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, pkg.NewUnauthorizedError(fmt.Errorf("用户名或密码错误"))
+			return nil, pkg.NewUnauthorizedError()
 		}
 		return nil, pkg.NewMySqlError(fmt.Errorf("获取用户信息失败: %s", err.Error()))
 	}
 	var password = md5.Sum([]byte(r.Password))
 	if fmt.Sprintf("%x", password) != user.Password {
-		return nil, pkg.NewUnauthorizedError(fmt.Errorf("用户名或密码错误"))
+		return nil, pkg.NewUnauthorizedError()
 	}
 	//cookie写入session
 	session := sessions.Default(c)
@@ -124,7 +124,7 @@ func (s *UserService) Add(c *gin.Context, req any) (data any, repError any) {
 	}
 	if !isAdmin {
 		//403
-		return nil, pkg.NewUnauthorizedError(fmt.Errorf("没有权限执行该操作"))
+		return nil, pkg.NewUnauthorizedError()
 	}
 	//判断重名
 	_, err := model.UserData.GetByUsername(r.Username)

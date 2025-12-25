@@ -44,7 +44,7 @@ func Success(c *gin.Context, data any) {
 // Err http 错误
 func Err(c *gin.Context, err *RspError, data any) {
 	c.JSON(err.Code(), gin.H{
-		"code":  err.Code(),
+		// "code":  err.Code(),
 		"error": err.Error(),
 	})
 }
@@ -84,8 +84,9 @@ func NewConflictError(err error) *RspError {
 }
 
 // 无权操作 403
-func NewUnauthorizedError(err error) *RspError {
-	return NewRspError(http.StatusForbidden, err)
+// func NewUnauthorizedError(err error) *RspError {
+func NewUnauthorizedError() *RspError {
+	return NewRspError(http.StatusForbidden, fmt.Errorf("无权限执行此操作"))
 }
 
 // 资源不存在 404

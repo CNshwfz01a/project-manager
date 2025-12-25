@@ -6,6 +6,22 @@ type TeamAddReq struct {
 }
 
 type TeamAddUserReq struct {
-	TeamID int `json:"team_id" validate:"required"`
-	UserID int `json:"user_id" validate:"required"`
+	TeamID uint `json:"team_id" validate:"required"`
+	UserID uint `json:"user_id" validate:"required"`
+}
+
+type TeamAddProjectReq struct {
+	TeamID      uint    `json:"team_id" validate:"required"`
+	ProjectName string  `json:"name" validate:"required"`
+	ProjectDesc *string `json:"desc,omitempty"`
+}
+
+/*
+*
+// TeamPatch 示例: [{"op":"replace","path":"/leader","value":{"id":5}}]
+*/
+type TeamPatch []struct {
+	Op    string      `json:"op" validate:"required,oneof=replace add remove"`
+	Path  string      `json:"path" validate:"required,oneof=/name /desc /leader"`
+	Value interface{} `json:"value,omitempty"`
 }
