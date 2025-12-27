@@ -8,7 +8,7 @@ import (
 )
 
 type Team struct {
-	ID        uint           `json:"id" gorm:"primaryKey"`
+	ID        uint           `json:"id" gorm:"primarykey"`
 	Name      string         `json:"name"`
 	Desc      *string        `json:"desc,omitempty"`
 	Leader    *User          `json:"leader,omitempty" gorm:"foreignKey:LeaderID;references:ID"`
@@ -20,9 +20,9 @@ type Team struct {
 }
 
 type TeamProject struct {
-	ID        int      `json:"id" gorm:"primaryKey"`
+	ID        uint     `json:"id" gorm:"primarykey"`
 	TeamID    uint     `json:"team_id" gorm:""`
-	ProjectID uint     `json:"project_id" gorm:""`
+	ProjectID uint     `json:"project_id" gorm:"unsigned"`
 	Name      string   `json:"name" gorm:""`
 	Project   *Project `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
 }

@@ -66,3 +66,52 @@ func (m *ProjectModel) AddUserToProject(userID uint, projectID uint) error {
 		"user_id":    userID,
 	}).Error
 }
+
+// DeleteProject 删除项目
+func (m *ProjectModel) DeleteProject(projectID uint) error {
+	//先删除关联的用户
+	err := pkg.DB.Debug().Table("project_users").Where("project_id = ?", projectID).Delete(nil).Error
+	if err != nil {
+		return err
+	}
+	//再删除关联的团队关系
+	err = pkg.DB.Debug().Table("team_projects").Where("project_id = ?", projectID).Delete(nil).Error
+	if err != nil {
+		return err
+	}
+	//再删除项目
+	return pkg.DB.Debug().Where("id = ?", projectID).Delete(&Project{}).Error
+}
+
+// RemoveUserFromProject 清退项目中的用户
+func (m *ProjectModel) RemoveUserFromProject(userID uint, projectID uint) error {
+	return pkg.DB.Debug().Table("project_users").Where("project_id = ? AND user_id = ?", projectID, userID).Delete(nil).Error
+}
+
+// GetUsersInProject 获取项目中的所有用户
+func (m *ProjectModel) GetUsersInProject(projectID uint, orderBy string, page int, pageSize int, name string) ([]*User, error) {
+	var users []*User
+	query := pkg.DB.Debug().Table("users").
+		Joins("JOIN project_users ON users.id = project_users.user_id").
+		Where("project_users.project_id = ?", projectID).
+		Preload("Roles")
+
+	if name != "" {
+		query = query.Where("users.username LIKE ?", "%"+name+"%")
+	}
+
+	if orderBy != "" {
+		query = query.Order(orderBy)
+	}
+
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		query = query.Offset(offset).Limit(pageSize)
+	}
+
+	err := query.Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}

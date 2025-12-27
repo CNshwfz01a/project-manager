@@ -62,3 +62,13 @@ func (r *ProjectUpdateReq) SetDefaults() {
 		r.Status = "WAIT_FOR_SCHEDULE"
 	}
 }
+
+/*
+*
+// ProjectPatch 示例: [{"op":"replace","path":"/name","value":"新项目名"}]
+*/
+type ProjectPatch []struct {
+	Op    string      `json:"op" validate:"required,oneof=replace add remove"`
+	Path  string      `json:"path" validate:"required,oneof=/name /desc /status"`
+	Value interface{} `json:"value" validate:"required"`
+}
