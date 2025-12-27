@@ -19,6 +19,7 @@ var (
 	User    = &UserController{}
 	Team    = &TeamController{}
 	Project = &ProjectController{}
+	Audit   = &AuditController{}
 
 	validate = validator.New()
 	trans    ut.Translator

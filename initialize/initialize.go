@@ -23,6 +23,7 @@ func InitDB() error {
 		&model.Team{},
 		&model.TeamProject{},
 		&model.Project{},
+		&model.Audit{},
 	)
 
 	//初始化默认权限和角色

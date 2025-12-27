@@ -11,4 +11,5 @@ var (
 	User         = &UserService{}
 	Team         = &TeamService{}
 	Project      = &ProjectService{}
+	Audit        = &AuditService{}
 )
