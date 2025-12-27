@@ -205,6 +205,14 @@ func (s *TeamService) Update(c *gin.Context, teamID uint, req any) (data any, re
 	}
 	//更新team属性
 	if r.Name != nil {
+		//判断重名
+		exist, err := model.TeamData.GetByTeamName(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+		if exist != nil && exist.ID != teamObj.ID {
+			return nil, pkg.NewConflictError(fmt.Errorf("资源已存在或存在冲突"))
+		}
 		teamObj.Name = *r.Name
 	}
 	if r.Desc != nil {
@@ -407,6 +415,94 @@ func (s *TeamService) ListUsers(c *gin.Context, teamID uint, req any) (data any,
 	count := len(users)
 	return map[string]any{
 		"list":  users,
+		"count": count,
+	}, nil
+}
+
+// RemoveUserFromTeam ...
+func (s *TeamService) RemoveUserFromTeam(c *gin.Context, teamID uint, userID uint) (data any, repError any) {
+	//判断team和user是否存在
+	Team, err := model.TeamData.GetByID(teamID)
+	if err == gorm.ErrRecordNotFound {
+		return nil, pkg.NewNotFoundError()
+	}
+	_, err = model.UserData.GetByID(userID)
+	if err == gorm.ErrRecordNotFound {
+		return nil, pkg.NewNotFoundError()
+	}
+	isAdmin, repError := model.GetRoleByName("admin", c)
+	if repError != nil {
+		return nil, repError
+	}
+	if !isAdmin {
+		UserID := c.GetUint("user_id")
+		isLeader, repError := model.TeamData.IsTeamLeader(UserID, teamID)
+		if repError != nil {
+			return nil, repError
+		}
+		if !isLeader {
+			return nil, pkg.NewUnauthorizedError()
+		}
+		//判断user是否在team内
+		isInTeam, repError := model.TeamData.IsUserInTeam(userID, teamID)
+		if repError != nil {
+			return nil, repError
+		}
+		if !isInTeam {
+			return nil, pkg.NewUnauthorizedError()
+		}
+	}
+	//执行移除
+	err = model.TeamData.RemoveUserFromTeam(userID, teamID)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("从团队移除用户失败: %v", err))
+	}
+	//如果被移除的 User 是该 Team 的 Leader，移除后 Leader 职位将被清空，该 Team 将无 Leader。
+	if Team.LeaderID != nil && *Team.LeaderID == userID {
+		Team.LeaderID = nil
+		err = pkg.DB.Save(&Team).Error
+		if err != nil {
+			return nil, pkg.NewRspError(500, fmt.Errorf("清空团队负责人失败: %v", err))
+		}
+	}
+	return nil, nil
+}
+
+// ListProjects ...
+func (s *TeamService) ListProjects(c *gin.Context, teamID uint, req any) (data any, repError any) {
+	r, ok := req.(*request.ProjectListReq)
+	UserID := c.GetUint("user_id")
+	if !ok {
+		return nil, ReqAssertErr
+	}
+	//权限检查 admin可以查询任意team的项目列表 普通用户只能查询自己所在team的项目列表
+	isAdmin, repError := model.GetRoleByName("admin", c)
+	if repError != nil {
+		return nil, repError
+	}
+	if !isAdmin {
+		isInTeam, repError := model.TeamData.IsUserInTeam(UserID, teamID)
+		if repError != nil {
+			return nil, repError
+		}
+		if !isInTeam {
+			return nil, pkg.NewUnauthorizedError()
+		}
+	}
+	//判断team是否存在
+	_, err := model.TeamData.GetByID(teamID)
+	if err == gorm.ErrRecordNotFound {
+		return nil, pkg.NewNotFoundError()
+	}
+	//查询team的项目列表
+	projects, err := model.TeamData.ListProjects(teamID, 0, UserID, r.OrderBy, r.Page, r.PageSize, r.Name, r.PartIn)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取团队项目列表失败: %v", err))
+	}
+	//格式化返回
+	count := len(projects)
+	return map[string]any{
+		"list":  projects,
 		"count": count,
 	}, nil
 }

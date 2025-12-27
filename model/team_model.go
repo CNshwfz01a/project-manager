@@ -200,3 +200,45 @@ func (m *TeamModel) DeleteTeam(teamID uint) error {
 	err = pkg.DB.Debug().Where("id = ?", teamID).Delete(&Team{}).Error
 	return err
 }
+
+// RemoveUserFromTeam ...
+func (m *TeamModel) RemoveUserFromTeam(teamID uint, userID uint) error {
+	//删除team_users关联数据
+	return pkg.DB.Debug().Table("team_users").Where("team_id = ? AND user_id = ?", teamID, userID).Delete(nil).Error
+}
+
+// ListProjects
+func (m *TeamModel) ListProjects(teamID uint, meID uint, userID uint, orderBy string, page int, pageSize int, name string, partIn bool) ([]Project, error) {
+	var projects []Project
+	//查询列表 需要preload关联数据
+	query := pkg.DB.Debug().Model(&Project{}).Select("projects.id", "projects.name", "projects.desc", "projects.status", "projects.created_at", "projects.updated_at")
+	//过滤teamID
+	if teamID != 0 {
+		query = query.Joins("JOIN team_projects ON team_projects.project_id = projects.id").
+			Where("team_projects.team_id = ?", teamID)
+	}
+	//过滤userID
+	if meID != 0 {
+		query = query.Joins("JOIN project_users ON project_users.project_id = projects.id").
+			Where("project_users.user_id = ?", meID)
+	}
+	//过滤name
+	if name != "" {
+		query = query.Where("projects.name LIKE ?", "%"+name+"%")
+	}
+	//过滤partIn
+	if partIn && userID != 0 {
+		query = query.Joins("JOIN project_users AS pu2 ON pu2.project_id = projects.id").
+			Where("pu2.user_id = ?", userID)
+	}
+	//排序
+	if orderBy != "" {
+		query = query.Order(orderBy)
+	}
+	//分页
+	offset := (page - 1) * pageSize
+	query = query.Offset(offset).Limit(pageSize)
+
+	err := query.Find(&projects).Error
+	return projects, err
+}

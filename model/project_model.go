@@ -29,6 +29,16 @@ func (m *ProjectModel) GetByID(id uint) (*Project, error) {
 	return &project, err
 }
 
+// GetByName 根据名称获取项目
+func (m *ProjectModel) GetByName(name string) (*Project, error) {
+	var project Project
+	err := pkg.DB.Debug().Where("name = ?", name).First(&project).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &project, err
+}
+
 // GetTeamIDByProjectID 根据项目ID获取所属的TeamID
 func (m *ProjectModel) GetTeamIDByProjectID(projectID uint) (uint, error) {
 	var teamProject TeamProject

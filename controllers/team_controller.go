@@ -98,3 +98,25 @@ func (m *TeamController) Delete(c *gin.Context) {
 		return service.Team.Delete(c, uint(id))
 	})
 }
+
+// RemoveUserFromTeam ...
+func (m *TeamController) RemoveUserFromTeam(c *gin.Context) {
+	//读url的team_id参数
+	var teamID, _ = strconv.Atoi(c.Param("team_id"))
+	//读url的user_id参数
+	var userID, _ = strconv.Atoi(c.Param("user_id"))
+	Handle(c, nil, func() (any, any) {
+		return service.Team.RemoveUserFromTeam(c, uint(teamID), uint(userID))
+	})
+}
+
+// ListProjects ...
+func (m *TeamController) ListProjects(c *gin.Context) {
+	req := new(request.ProjectListReq) //复用ProjectListReq的分页排序参数
+	//读url的team_id参数
+	var id, _ = strconv.Atoi(c.Param("team_id"))
+	req.TeamID = uint(id)
+	Handle(c, req, func() (any, any) {
+		return service.Team.ListProjects(c, uint(id), req)
+	})
+}

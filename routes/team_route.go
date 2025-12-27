@@ -12,8 +12,8 @@ func InitTeamRoutes(r *gin.RouterGroup) gin.IRoutes {
 	team.Use(middleware.AuthRequired())
 	{
 		team.POST("/", controllers.Team.Add)
-		team.POST("/:team_id/users", controllers.Team.AddUserToTeam)
-		team.POST("/:team_id/projects", controllers.Team.AddProjectToTeam)
+		team.POST("/:team_id/users", controllers.Team.AddUserToTeam)       //加人
+		team.POST("/:team_id/projects", controllers.Team.AddProjectToTeam) //加项目
 		//修改单一属性
 		team.PATCH("/:team_id", controllers.Team.Patch)
 		//修改属性
@@ -24,9 +24,12 @@ func InitTeamRoutes(r *gin.RouterGroup) gin.IRoutes {
 		team.GET("/", controllers.Team.List)
 		//查询团队用户列表
 		team.GET("/:team_id/users", controllers.Team.ListUsers)
+		//查询团队项目列表
+		team.GET("/:team_id/projects", controllers.Team.ListProjects)
 		//删除
 		team.DELETE("/:team_id", controllers.Team.Delete)
-		
+		//从团队移除用户
+		team.DELETE("/:team_id/users/:user_id", controllers.Team.RemoveUserFromTeam)
 	}
 	return r
 }
