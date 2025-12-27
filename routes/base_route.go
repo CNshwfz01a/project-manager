@@ -19,5 +19,6 @@ func InitRoutes() *gin.Engine {
 	InitUserRoutes(path)
 	InitRoleRoutes(path)
 	InitTeamRoutes(path)
+	InitProjectRoute(path)
 	return r
 }

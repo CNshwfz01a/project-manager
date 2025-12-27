@@ -55,3 +55,46 @@ func (m *TeamController) Patch(c *gin.Context) {
 		return service.Team.Patch(c, uint(id), req)
 	})
 }
+
+func (m *TeamController) Get(c *gin.Context) {
+	//读url的team_id参数
+	var id, _ = strconv.Atoi(c.Param("team_id"))
+	Handle(c, nil, func() (any, any) {
+		return service.Team.Get(c, uint(id))
+	})
+}
+
+func (m *TeamController) List(c *gin.Context) {
+	req := new(request.UserListReq) //复用UserListReq的分页排序参数
+	Handle(c, req, func() (any, any) {
+		return service.Team.List(c, req)
+	})
+}
+
+func (m *TeamController) ListUsers(c *gin.Context) {
+	req := new(request.UserListReq) //复用UserListReq的分页排序参数
+	//读url的team_id参数
+	var id, _ = strconv.Atoi(c.Param("team_id"))
+	Handle(c, req, func() (any, any) {
+		return service.Team.ListUsers(c, uint(id), req)
+	})
+}
+
+// Update ...
+func (m *TeamController) Update(c *gin.Context) {
+	req := new(request.TeamUpdateReq)
+	//读url的team_id参数
+	var id, _ = strconv.Atoi(c.Param("team_id"))
+	Handle(c, req, func() (any, any) {
+		return service.Team.Update(c, uint(id), req)
+	})
+}
+
+// Delete ...
+func (m *TeamController) Delete(c *gin.Context) {
+	//读url的team_id参数
+	var id, _ = strconv.Atoi(c.Param("team_id"))
+	Handle(c, nil, func() (any, any) {
+		return service.Team.Delete(c, uint(id))
+	})
+}

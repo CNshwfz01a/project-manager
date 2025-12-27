@@ -20,9 +20,9 @@ func InitDB() error {
 	db.AutoMigrate(
 		&model.User{},
 		&model.Role{},
-		&model.Project{},
 		&model.Team{},
 		&model.TeamProject{},
+		&model.Project{},
 	)
 
 	//初始化默认权限和角色

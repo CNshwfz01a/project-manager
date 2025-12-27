@@ -25,3 +25,8 @@ type TeamPatch []struct {
 	Path  string      `json:"path" validate:"required,oneof=/name /desc /leader"`
 	Value interface{} `json:"value,omitempty"`
 }
+
+type TeamUpdateReq struct {
+	Name *string `json:"name" validate:"required"`
+	Desc *string `json:"desc,omitempty"`
+}

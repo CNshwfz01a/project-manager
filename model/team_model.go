@@ -20,10 +20,11 @@ type Team struct {
 }
 
 type TeamProject struct {
-	ID        int    `json:"id" gorm:"primaryKey"`
-	TeamID    uint   `json:"team_id" gorm:""`
-	ProjectID uint   `json:"project_id" gorm:""`
-	Name      string `json:"name" gorm:""`
+	ID        int      `json:"id" gorm:"primaryKey"`
+	TeamID    uint     `json:"team_id" gorm:""`
+	ProjectID uint     `json:"project_id" gorm:""`
+	Name      string   `json:"name" gorm:""`
+	Project   *Project `json:"project,omitempty" gorm:"foreignKey:ProjectID"`
 }
 
 type TeamModel struct{}
@@ -69,6 +70,25 @@ func (m *TeamModel) GetByID(id uint) (*Team, error) {
 	return &dataObj, err
 }
 
+func (m *TeamModel) GetDetailByID(id uint) (*Team, error) {
+	var dataObj Team
+	err := pkg.DB.Debug().
+		Preload("Projects", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "team_id", "project_id", "name")
+		}).
+		Preload("Leader", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "username", "nickname", "email", "logo", "created_at", "updated_at")
+		}).
+		Preload("Leader.Roles", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "type", "desc")
+		}).
+		Where("id = ?", id).First(&dataObj).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &dataObj, err
+}
+
 // AddUserToTeam ...
 func (m *TeamModel) AddUserToTeam(userID uint, teamID uint) error {
 	//插入team_users表
@@ -98,4 +118,85 @@ func (m *TeamModel) AddProjectToTeam(teamID uint, projectName string, projectDes
 		return err
 	}
 	return nil
+}
+
+// GetTeamsLedByUser 获取用户担任 Leader 的所有 Team
+func (m *TeamModel) GetTeamsLedByUser(userID uint) ([]Team, error) {
+	var teams []Team
+	err := pkg.DB.Debug().Where("leader_id = ?", userID).Find(&teams).Error
+	return teams, err
+}
+
+// GetUsersInTeams 获取指定 Teams 中的所有用户ID（用于可见性判断）
+func (m *TeamModel) GetUsersInTeams(teamIDs []uint) ([]uint, error) {
+	var userIDs []uint
+	err := pkg.DB.Debug().Table("team_users").
+		Where("team_id IN ?", teamIDs).
+		Distinct("user_id").
+		Pluck("user_id", &userIDs).Error
+	return userIDs, err
+}
+
+// list 查询条件 userID orderby page pagesize
+func (m *TeamModel) List(userID uint, orderBy string, page int, pageSize int) ([]Team, error) {
+	var teams []Team
+	offset := (page - 1) * pageSize
+	//查询列表 需要preload关联数据
+	query := pkg.DB.Debug().Model(&Team{}).Preload("Leader").Preload("Leader.Roles")
+
+	//如果userID不为0，表示查询该用户所在的team列表
+	if userID != 0 {
+		query = query.Joins("JOIN team_users ON team_users.team_id = teams.id").
+			Where("team_users.user_id = ?", userID)
+	}
+	//排序
+	if orderBy != "" {
+		query = query.Order(orderBy)
+	}
+	//分页
+	if pageSize > 0 {
+		query = query.Offset(offset).Limit(pageSize)
+	}
+	err := query.Find(&teams).Error
+	return teams, err
+}
+
+// ListUsersByTeamID ...
+func (m *TeamModel) ListUsersByTeamID(teamID uint, orderBy string, page int, pageSize int, name string) ([]User, error) {
+	var users []User
+	offset := (page - 1) * pageSize
+	//查询列表 需要preload关联数据
+	query := pkg.DB.Debug().Model(&User{}).Joins("JOIN team_users ON team_users.user_id = users.id").
+		Where("team_users.team_id = ?", teamID).
+		Preload("Roles")
+	if name != "" {
+		query = query.Where("users.username LIKE ? OR users.nickname LIKE ?", "%"+name+"%", "%"+name+"%")
+	}
+	//排序
+	if orderBy != "" {
+		query = query.Order(orderBy)
+	}
+	//分页
+	if pageSize > 0 {
+		query = query.Offset(offset).Limit(pageSize)
+	}
+	err := query.Find(&users).Error
+	return users, err
+}
+
+// DeleteTeam ...
+func (m *TeamModel) DeleteTeam(teamID uint) error {
+	//删除team_projects关联数据
+	err := pkg.DB.Debug().Where("team_id = ?", teamID).Delete(&TeamProject{}).Error
+	if err != nil {
+		return err
+	}
+	//删除team_users关联数据
+	err = pkg.DB.Debug().Table("team_users").Where("team_id = ?", teamID).Delete(nil).Error
+	if err != nil {
+		return err
+	}
+	//删除team数据
+	err = pkg.DB.Debug().Where("id = ?", teamID).Delete(&Team{}).Error
+	return err
 }

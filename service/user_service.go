@@ -34,7 +34,8 @@ func (s *UserService) Login(c *gin.Context, req any) (data any, repError any) {
 	}
 	var password = md5.Sum([]byte(r.Password))
 	if fmt.Sprintf("%x", password) != user.Password {
-		return nil, pkg.NewUnauthorizedError()
+		//400
+		return nil, pkg.NewRspError(400, fmt.Errorf("密码错误"))
 	}
 	//cookie写入session
 	session := sessions.Default(c)
@@ -209,6 +210,7 @@ func (s *UserService) List(c *gin.Context, req any) (data any, repError any) {
 	}, nil
 
 }
+
 
 // 将格式化用户信息的功能封装成函数
 func formatUserList(users []model.User) []response.UserListResp {

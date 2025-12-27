@@ -14,7 +14,7 @@ import (
 func TestConformance(t *testing.T) {
 	// do your init jobs, e.g. deploy service, database, prepare data
 
-	var _ = sdk.NewSDK("127.0.0.1:8086") // init sdk with your app server address
+	var _ = sdk.NewSDK("http://127.0.0.1:8086") // init sdk with your app server address
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	framework.GetFramework(t).DeployComponents()

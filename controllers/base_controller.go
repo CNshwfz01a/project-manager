@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"project-manager/pkg"
+	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/locales/zh"
@@ -14,9 +15,10 @@ import (
 )
 
 var (
-	Role = &RoleController{}
-	User = &UserController{}
-	Team = &TeamController{}
+	Role    = &RoleController{}
+	User    = &UserController{}
+	Team    = &TeamController{}
+	Project = &ProjectController{}
 
 	validate = validator.New()
 	trans    ut.Translator
@@ -48,11 +50,37 @@ func Handle(c *gin.Context, req any, fn func() (any, any)) {
 
 	//校验
 	if req != nil {
-		err = validate.Struct(req)
-		if err != nil {
-			for _, err := range err.(validator.ValidationErrors) {
-				pkg.Err(c, pkg.NewValidatorError(fmt.Errorf("%s", err.Translate(trans))), nil)
-				return
+		// 检查是否为切片类型
+		reqValue := reflect.ValueOf(req)
+
+		// 如果是指针，获取指针指向的值
+		if reqValue.Kind() == reflect.Ptr {
+			reqValue = reqValue.Elem()
+		}
+
+		if reqValue.Kind() == reflect.Slice {
+			log.Printf("切片校验，长度: %d\n", reqValue.Len())
+			// 如果是切片，遍历验证每个元素
+			for i := 0; i < reqValue.Len(); i++ {
+				item := reqValue.Index(i).Interface()
+				log.Printf("校验第 %d 个元素: %+v\n", i, item)
+				err = validate.Struct(item)
+				if err != nil {
+					for _, err := range err.(validator.ValidationErrors) {
+						pkg.Err(c, pkg.NewValidatorError(fmt.Errorf("%s", err.Translate(trans))), nil)
+						return
+					}
+				}
+			}
+		} else {
+			log.Printf("单个结构体校验\n")
+			// 如果是单个结构体，按原来的逻辑处理
+			err = validate.Struct(req)
+			if err != nil {
+				for _, err := range err.(validator.ValidationErrors) {
+					pkg.Err(c, pkg.NewValidatorError(fmt.Errorf("%s", err.Translate(trans))), nil)
+					return
+				}
 			}
 		}
 	}
