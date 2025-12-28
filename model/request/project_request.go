@@ -7,7 +7,7 @@ import (
 )
 
 type ProjectAddUserReq struct {
-	ProjectID uint `json:"project_id" validate:"required"`
+	ProjectID uint `json:"project_id"`
 	UserID    uint `json:"user_id" validate:"required"`
 }
 

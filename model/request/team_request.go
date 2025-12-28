@@ -6,12 +6,12 @@ type TeamAddReq struct {
 }
 
 type TeamAddUserReq struct {
-	TeamID uint `json:"team_id" validate:"required"`
+	TeamID uint `json:"team_id"`
 	UserID uint `json:"user_id" validate:"required"`
 }
 
 type TeamAddProjectReq struct {
-	TeamID      uint    `json:"team_id" validate:"required"`
+	TeamID      uint    `json:"team_id"`
 	ProjectName string  `json:"name" validate:"required"`
 	ProjectDesc *string `json:"desc,omitempty"`
 }
@@ -27,6 +27,6 @@ type TeamPatch []struct {
 }
 
 type TeamUpdateReq struct {
-	Name *string `json:"name" validate:"required"`
+	Name *string `json:"name,omitempty"`
 	Desc *string `json:"desc,omitempty"`
 }

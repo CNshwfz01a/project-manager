@@ -17,5 +17,5 @@ type RoleAddReq struct {
 }
 
 type RoleDeleteReq struct {
-	ID uint `uri:"id" validate:"required"`
+	ID uint `uri:"id"`
 }

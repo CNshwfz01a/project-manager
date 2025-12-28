@@ -7,6 +7,6 @@ type RoleListRsp struct {
 	Total int64        `json:"total"`
 }
 
-type RoleAddRsp struct {
-	Role model.Role `json:"role"`
-}
+// type RoleAddRsp struct {
+// 	Role model.Role `json:"role"`
+// }

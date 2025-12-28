@@ -115,3 +115,24 @@ func (m *ProjectModel) GetUsersInProject(projectID uint, orderBy string, page in
 	}
 	return users, nil
 }
+
+// GetProjectsByUserID 获取用户参与的所有项目
+func (m *ProjectModel) GetProjectsByUserID(userID uint) ([]Project, error) {
+	var projects []Project
+	err := pkg.DB.Debug().Model(&Project{}).
+		Joins("JOIN project_users ON project_users.project_id = projects.id").
+		Where("project_users.user_id = ?", userID).
+		Find(&projects).Error
+	return projects, err
+}
+
+// GetCommonProjects 获取两个用户共同参与的项目
+func (m *ProjectModel) GetCommonProjects(userID1, userID2 uint) ([]Project, error) {
+	var projects []Project
+	err := pkg.DB.Debug().Model(&Project{}).
+		Joins("JOIN project_users as pu1 ON pu1.project_id = projects.id").
+		Joins("JOIN project_users as pu2 ON pu2.project_id = projects.id").
+		Where("pu1.user_id = ? AND pu2.user_id = ?", userID1, userID2).
+		Find(&projects).Error
+	return projects, err
+}

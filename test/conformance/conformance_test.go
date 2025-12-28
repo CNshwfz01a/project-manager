@@ -8,7 +8,9 @@ import (
 
 	_ "github.com/dspo/go-homework/conformance"
 	"github.com/dspo/go-homework/sdk"
-	"github.com/dspo/go-homework/test/framework"
+
+	//引用但是不使用
+	_ "github.com/dspo/go-homework/test/framework"
 )
 
 func TestConformance(t *testing.T) {
@@ -17,7 +19,7 @@ func TestConformance(t *testing.T) {
 	var _ = sdk.NewSDK("http://127.0.0.1:8086") // init sdk with your app server address
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	framework.GetFramework(t).DeployComponents()
+	// framework.GetFramework(t).DeployComponents()
 
 	ginkgo.RunSpecs(t, "Conformance Suite")
 }

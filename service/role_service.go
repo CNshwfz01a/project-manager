@@ -48,6 +48,13 @@ func (s *RoleService) Add(c *gin.Context, req any) (data any, repError any) {
 	}
 
 	//判断当前角色是否有权限
+	isAdmin, repError := model.GetRoleByName("admin", c)
+	if repError != nil {
+		return nil, repError
+	}
+	if !isAdmin {
+		return nil, pkg.NewUnauthorizedError()
+	}
 
 	role := model.Role{
 		Name: r.Name,
@@ -60,9 +67,7 @@ func (s *RoleService) Add(c *gin.Context, req any) (data any, repError any) {
 		return nil, pkg.NewMySqlError(fmt.Errorf("添加角色失败: %s", err.Error()))
 	}
 
-	return response.RoleAddRsp{
-		Role: role,
-	}, nil
+	return role, nil
 }
 
 func (s *RoleService) Delete(c *gin.Context, req any) (data any, repError any) {
@@ -71,8 +76,25 @@ func (s *RoleService) Delete(c *gin.Context, req any) (data any, repError any) {
 	if !ok {
 		return nil, ReqAssertErr
 	}
+	//判断当前角色是否有权限
+	isAdmin, repError := model.GetRoleByName("admin", c)
+	if repError != nil {
+		return nil, repError
+	}
+	if !isAdmin {
+		return nil, pkg.NewUnauthorizedError()
+	}
+	//不可以删除系统角色
+	roleData, err := model.RoleData.GetByID(r.ID)
+	role := roleData
+	if role.Type == "System" {
+		return nil, pkg.NewRspError(400, fmt.Errorf("系统角色不能被删除"))
+	}
+	if err != nil {
+		return nil, pkg.NewMySqlError(fmt.Errorf("查询角色失败: %s", err.Error()))
+	}
 	//删除对应的用户关联关系
-	err := model.UserData.DeleteRelationByRoleID(r.ID)
+	err = model.UserData.DeleteRelationByRoleID(r.ID)
 	if err != nil {
 		return nil, pkg.NewMySqlError(fmt.Errorf("删除角色关联用户失败: %s", err.Error()))
 	}

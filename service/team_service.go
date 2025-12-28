@@ -99,13 +99,14 @@ func (s *TeamService) AddProjectToTeam(c *gin.Context, req any) (data any, repEr
 	if !ok {
 		return nil, ReqAssertErr
 	}
+	UserID := c.GetUint("user_id")
 	//获取权限 admin可以添加任意project team leader可以添加本team的project 其他403
 	isAdmin, repError := model.GetRoleByName("admin", c)
 	if repError != nil {
 		return nil, repError
 	}
 	if !isAdmin {
-		isLeader, repError := model.TeamData.IsTeamLeader(r.TeamID, r.TeamID)
+		isLeader, repError := model.TeamData.IsTeamLeader(UserID, r.TeamID)
 		if repError != nil {
 			return nil, repError
 		}
@@ -113,7 +114,6 @@ func (s *TeamService) AddProjectToTeam(c *gin.Context, req any) (data any, repEr
 			return nil, pkg.NewUnauthorizedError()
 		}
 		//判断当前team_id是否为leader所属team
-		UserID := c.GetUint("user_id")
 		isInTeam, repError := model.TeamData.IsUserInTeam(UserID, r.TeamID)
 		if repError != nil {
 			return nil, repError
@@ -132,7 +132,12 @@ func (s *TeamService) AddProjectToTeam(c *gin.Context, req any) (data any, repEr
 	if err != nil {
 		return nil, pkg.NewRspError(500, fmt.Errorf("添加项目到团队失败: %v", err))
 	}
-	return nil, nil
+	//返回project详情
+	projectObj, err := model.ProjectData.GetByName(r.ProjectName)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取项目失败: %v", err))
+	}
+	return projectObj, nil
 }
 
 // Patch ...
@@ -277,6 +282,21 @@ func ReplaceLeader(teamObj **model.Team, value any, c *gin.Context) error {
 	//判断value是否为null
 	if value == nil {
 		(*teamObj).LeaderID = nil
+		//如果此用户不在担任其他team的leader 则移除team_lead角色
+		var count int64
+		pkg.DB.Model(&model.Team{}).Where("leader_id = ?", UserID).Count(&count)
+		if count == 0 {
+			//移除team_lead角色
+			var role model.Role
+			err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
+			}
+			err = pkg.DB.Model(&model.User{ID: UserID}).Association("Roles").Delete(&role)
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("移除角色失败: %v", err))
+			}
+		}
 	} else {
 		valMap, ok := value.(map[string]interface{})
 		if !ok {
@@ -294,7 +314,7 @@ func ReplaceLeader(teamObj **model.Team, value any, c *gin.Context) error {
 		// 	return pkg.NewRspError(400, fmt.Errorf("不可修改自己为团队负责人"))
 		// }
 		//检查leaderID是否存在
-		_, err := model.UserData.GetByID(leaderID)
+		targetUser, err := model.UserData.GetByID(leaderID)
 		if err == gorm.ErrRecordNotFound {
 			return pkg.NewNotFoundError()
 		} else if err != nil {
@@ -310,6 +330,26 @@ func ReplaceLeader(teamObj **model.Team, value any, c *gin.Context) error {
 			return pkg.NewNotFoundError()
 		}
 		(*teamObj).LeaderID = &leaderID
+		//判断当前用户是否有team leader角色
+		hasRole := false
+		for _, role := range targetUser.Roles {
+			if role.Name == "team leader" {
+				hasRole = true
+				break
+			}
+		}
+		if !hasRole {
+			//赋予team_lead角色
+			var role model.Role
+			err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
+			}
+			err = pkg.DB.Model(targetUser).Association("Roles").Append(&role)
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("添加角色失败: %v", err))
+			}
+		}
 	}
 
 	return nil

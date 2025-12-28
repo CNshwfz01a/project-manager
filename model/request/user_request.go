@@ -7,7 +7,8 @@ import (
 )
 
 type UserLoginReq struct {
-	Username string `json:"username" validate:"required"`
+	Username string `json:"username"`
+	Email    string `json:"email" validate:"omitempty,email"`
 	Password string `json:"password" validate:"required"`
 }
 
@@ -63,4 +64,14 @@ func (r *UserListReq) SetParams(c *gin.Context) {
 	}
 	//如果有RoleNames参数
 	r.RoleNames, _ = c.GetQueryArray("role_name[]")
+}
+
+type UserAssignRoleReq struct {
+	RoleID uint `json:"role_id" validate:"required,gt=0"`
+}
+
+type UserUpdateProfileReq struct {
+	Email    string `json:"email" validate:"required,email,max=100"`
+	Nickname string `json:"nickname" validate:"omitempty,max=50"`
+	Logo     string `json:"logo" validate:"omitempty,url,max=255"`
 }

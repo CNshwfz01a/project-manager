@@ -78,6 +78,11 @@ func NewValidatorError(err error) *RspError {
 	return NewRspError(ValidatorErr, err)
 }
 
+// 401
+func NewNotlogInError() *RspError {
+	return NewRspError(http.StatusUnauthorized, fmt.Errorf("无权限执行此操作"))
+}
+
 // 资源冲突 409
 func NewConflictError(err error) *RspError {
 	return NewRspError(http.StatusConflict, err)

@@ -123,7 +123,7 @@ func (m *TeamModel) AddProjectToTeam(teamID uint, projectName string, projectDes
 // GetTeamsLedByUser 获取用户担任 Leader 的所有 Team
 func (m *TeamModel) GetTeamsLedByUser(userID uint) ([]Team, error) {
 	var teams []Team
-	err := pkg.DB.Debug().Where("leader_id = ?", userID).Find(&teams).Error
+	err := pkg.DB.Debug().Where("leader_id = ?", userID).Preload("Leader").Preload("Leader.Roles").Find(&teams).Error
 	return teams, err
 }
 
@@ -241,4 +241,45 @@ func (m *TeamModel) ListProjects(teamID uint, meID uint, userID uint, orderBy st
 
 	err := query.Find(&projects).Error
 	return projects, err
+}
+
+// IsSameTeam checks if two users are in the same team
+func (m *TeamModel) IsSameTeam(userID1 uint, userID2 uint) (bool, error) {
+	var count int64
+	err := pkg.DB.Table("team_users as tu1").
+		Joins("JOIN team_users as tu2 ON tu1.team_id = tu2.team_id").
+		Where("tu1.user_id = ? AND tu2.user_id = ?", userID1, userID2).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetTeamsByUserID 获取用户所在的所有 Team
+func (m *TeamModel) GetTeamsByUserID(userID uint) ([]Team, error) {
+	var teams []Team
+	err := pkg.DB.Debug().Model(&Team{}).
+		Joins("JOIN team_users ON team_users.team_id = teams.id").
+		Where("team_users.user_id = ?", userID).
+		Preload("Leader").Preload("Leader.Roles").
+		Find(&teams).Error
+	return teams, err
+}
+
+// GetCommonTeams 获取两个用户共同所在的 Team
+func (m *TeamModel) GetCommonTeams(userID1, userID2 uint) ([]Team, error) {
+	var teams []Team
+	err := pkg.DB.Debug().Model(&Team{}).
+		Joins("JOIN team_users as tu1 ON tu1.team_id = teams.id").
+		Joins("JOIN team_users as tu2 ON tu2.team_id = teams.id").
+		Where("tu1.user_id = ? AND tu2.user_id = ?", userID1, userID2).
+		Preload("Leader").Preload("Leader.Roles").
+		Find(&teams).Error
+	return teams, err
+}
+
+// RemoveTeamLeader 将团队负责人设为 null
+func (m *TeamModel) RemoveTeamLeader(teamID uint) error {
+	return pkg.DB.Debug().Model(&Team{}).Where("id = ?", teamID).Update("leader_id", nil).Error
 }

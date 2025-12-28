@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"project-manager/middleware"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -14,6 +16,8 @@ func InitRoutes() *gin.Engine {
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "路由不存在"})
 	})
+	//使用audit中间件记录用户操作日志
+	r.Use(middleware.Audit())
 	//初始化各个模块的路由
 	path := r.Group("/api")
 	InitUserRoutes(path)

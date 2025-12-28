@@ -66,11 +66,11 @@ func initRoleAndPermission(db *gorm.DB) error {
 
 	//Role表中插入team_lead角色和normal_user角色
 	pkg.Insert("roles", &model.Role{
-		Name: "normal_user",
+		Name: "normal user",
 		Type: "System",
 	})
 	pkg.Insert("roles", &model.Role{
-		Name: "team_lead",
+		Name: "team leader",
 		Type: "System",
 	})
 	return nil

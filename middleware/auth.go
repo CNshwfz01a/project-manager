@@ -43,6 +43,7 @@ func AuthRequired() gin.HandlerFunc {
 
 		// 将用户ID存储到上下文中,供后续处理器使用
 		c.Set("user_id", userID)
+		c.Set("username", user.Username)
 		c.Set("user_role", user.Roles)
 		c.Next()
 	}

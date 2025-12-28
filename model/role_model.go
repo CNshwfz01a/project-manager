@@ -20,6 +20,13 @@ type Role struct {
 
 type RoleModel struct{}
 
+// GetByID
+func (m *RoleModel) GetByID(id uint) (*Role, error) {
+	var role Role
+	err := pkg.DB.First(&role, id).Error
+	return &role, err
+}
+
 // Exist
 func (m *RoleModel) Exist(filter map[string]any) bool {
 	var dataObj Role

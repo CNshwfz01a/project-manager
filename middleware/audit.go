@@ -40,12 +40,12 @@ func Audit() gin.HandlerFunc {
 func shouldAudit(c *gin.Context) bool {
 	method := c.Request.Method
 	path := c.Request.URL.Path
-	statusCode := c.Writer.Status()
+	// statusCode := c.Writer.Status()
 
-	// 只记录成功的请求（2xx）
-	if statusCode < 200 || statusCode >= 300 {
-		return false
-	}
+	// // 只记录成功的请求（2xx）
+	// if statusCode < 200 || statusCode >= 300 {
+	// 	return false
+	// }
 
 	// 不记录查询操作（GET）
 	if method == "GET" {
