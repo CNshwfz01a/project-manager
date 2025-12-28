@@ -83,23 +83,23 @@ func (s *ProjectService) AddUserToProject(c *gin.Context, req any) (data any, re
 			teamIDs = append(teamIDs, team.ID)
 		}
 
-		visibleUserIDs, err := model.TeamData.GetUsersInTeams(teamIDs)
-		if err != nil {
-			return nil, pkg.NewRspError(500, fmt.Errorf("获取可见用户失败: %v", err))
-		}
+		// visibleUserIDs, err := model.TeamData.GetUsersInTeams(teamIDs)
+		// if err != nil {
+		// 	return nil, pkg.NewRspError(500, fmt.Errorf("获取可见用户失败: %v", err))
+		// }
 
-		// 检查目标用户是否在可见用户列表中
-		isVisible := false
-		for _, visibleUserID := range visibleUserIDs {
-			if visibleUserID == r.UserID {
-				isVisible = true
-				break
-			}
-		}
+		// // 检查目标用户是否在可见用户列表中
+		// isVisible := false
+		// for _, visibleUserID := range visibleUserIDs {
+		// 	if visibleUserID == r.UserID {
+		// 		isVisible = true
+		// 		break
+		// 	}
+		// }
 
-		if !isVisible {
-			return nil, pkg.NewUnauthorizedError()
-		}
+		// if !isVisible {
+		// 	return nil, pkg.NewUnauthorizedError()
+		// }
 	}
 
 	//添加用户到项目

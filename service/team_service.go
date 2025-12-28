@@ -60,19 +60,12 @@ func (s *TeamService) AddUserToTeam(c *gin.Context, req any) (data any, repError
 		return nil, repError
 	}
 	if !isAdmin {
-		isLeader, repError := model.TeamData.IsTeamLeader(r.UserID, r.TeamID)
+		userID := c.GetUint("user_id")
+		isLeader, repError := model.TeamData.IsTeamLeader(userID, r.TeamID)
 		if repError != nil {
 			return nil, repError
 		}
 		if !isLeader {
-			return nil, pkg.NewUnauthorizedError()
-		}
-		//判断user是否在team内
-		isInTeam, repError := model.TeamData.IsUserInTeam(r.UserID, r.TeamID)
-		if repError != nil {
-			return nil, repError
-		}
-		if !isInTeam {
 			return nil, pkg.NewUnauthorizedError()
 		}
 	}
@@ -176,6 +169,11 @@ func (s *TeamService) Patch(c *gin.Context, teamID uint, req any) (data any, rep
 	err = pkg.DB.Save(&teamObj).Error
 	if err != nil {
 		return nil, pkg.NewRspError(500, fmt.Errorf("保存团队失败: %v", err))
+	}
+	//查询更新后的team详情
+	teamObj, err = model.TeamData.GetDetailByID(teamID)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取团队失败: %v", err))
 	}
 	return teamObj, nil
 }
