@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -48,18 +47,20 @@ func (s *UserService) Login(c *gin.Context, req any) (data any, repError any) {
 	}
 	//cookie写入session
 	session := sessions.Default(c)
-	sessionId := uuid.New().String()
-	session.Set(sessionId, user.ID)
+	// 设置session过期时间
 	sec, err := setting.Cfg.GetSection("user")
 	if err != nil {
 		//返回500
 		return nil, pkg.NewRspError(pkg.SystemErr, fmt.Errorf("获取用户配置失败: %s", err.Error()))
 	}
 	sessionTTL := sec.Key("SESSION_MAX_AGE").MustInt(3600)
-	c.SetCookie("session-login", sessionId, sessionTTL, "/", "", false, true)
+	
 	session.Options(sessions.Options{
 		MaxAge: sessionTTL,
+		Path:   "/",
 	})
+	// 直接在Session中存储用户ID
+	session.Set("user_id", user.ID)
 	session.Save()
 
 	return nil, nil
@@ -68,13 +69,8 @@ func (s *UserService) Login(c *gin.Context, req any) (data any, repError any) {
 // 删除cookie
 func (s *UserService) Logout(c *gin.Context) (data any, repError any) {
 	session := sessions.Default(c)
-	cookie, err := c.Cookie("session-login")
-	if err != nil {
-		return nil, pkg.NewRspError(400, fmt.Errorf("获取会话失败: %s", err.Error()))
-	}
-	session.Delete(cookie)
+	session.Delete("user_id")
 	session.Save()
-	c.SetCookie("session-login", "", -1, "/", "", false, true)
 	return nil, nil
 }
 
