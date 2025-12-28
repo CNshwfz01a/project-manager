@@ -180,7 +180,12 @@ func (s *ProjectService) UpdateProject(c *gin.Context, projectID int, req any) (
 	if err != nil {
 		return nil, pkg.NewRspError(500, fmt.Errorf("更新项目信息失败: %v", err))
 	}
-	return nil, nil
+	//返回更新后的项目详情
+	updatedProject, err := model.ProjectData.GetByID(uint(projectID))
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取项目信息失败: %v", err))
+	}
+	return updatedProject, nil
 }
 
 // PartialUpdateProject 部分更新项目信息

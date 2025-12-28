@@ -63,7 +63,8 @@ func (m *TeamModel) IsUserInTeam(userID uint, teamID uint) (bool, error) {
 // GetByID
 func (m *TeamModel) GetByID(id uint) (*Team, error) {
 	var dataObj Team
-	err := pkg.DB.Debug().Where("id = ?", id).First(&dataObj).Error
+	//预加载Leader信息
+	err := pkg.DB.Debug().Preload("Leader").Preload("Leader.Roles").Where("id = ?", id).First(&dataObj).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
