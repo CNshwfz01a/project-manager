@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"project-manager/model"
 	"strings"
 	"time"
@@ -14,6 +16,15 @@ func Audit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 记录开始时间
 		startTime := time.Now()
+
+		var body string
+		// 只有在需要记录日志的方法时才读取Body
+		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" || c.Request.Method == "DELETE" {
+			bodyBytes, _ := io.ReadAll(c.Request.Body)
+			// 读取完后需要重新赋值回去，否则后续无法读取
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			body = string(bodyBytes)
+		}
 
 		// 处理请求
 		c.Next()
@@ -28,7 +39,7 @@ func Audit() gin.HandlerFunc {
 			}
 
 			// 构建审计内容
-			content := buildAuditContent(c, userID, username, startTime)
+			content := buildAuditContent(c, userID, username, startTime, body)
 
 			// 记录到数据库
 			_ = model.AuditData.Create(content)
@@ -62,7 +73,7 @@ func shouldAudit(c *gin.Context) bool {
 }
 
 // buildAuditContent 构建审计内容
-func buildAuditContent(c *gin.Context, userID uint, username string, startTime time.Time) string {
+func buildAuditContent(c *gin.Context, userID uint, username string, startTime time.Time, body string) string {
 	method := c.Request.Method
 	path := c.Request.URL.Path
 	statusCode := c.Writer.Status()
@@ -74,7 +85,7 @@ func buildAuditContent(c *gin.Context, userID uint, username string, startTime t
 
 	// 格式化审计内容
 	content := fmt.Sprintf(
-		"[%s] 用户: %s (ID:%d) | 操作: %s | 路径: %s %s | 状态: %d | IP: %s | 耗时: %dms",
+		"[%s] 用户: %s (ID:%d) | 操作: %s | 路径: %s %s | 状态: %d | IP: %s | 耗时: %dms | Body: %s",
 		time.Now().Format("2006-01-02 15:04:05"),
 		username,
 		userID,
@@ -84,6 +95,7 @@ func buildAuditContent(c *gin.Context, userID uint, username string, startTime t
 		statusCode,
 		clientIP,
 		duration,
+		body,
 	)
 
 	return content
