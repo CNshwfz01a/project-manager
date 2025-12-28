@@ -54,7 +54,7 @@ func (s *UserService) Login(c *gin.Context, req any) (data any, repError any) {
 		return nil, pkg.NewRspError(pkg.SystemErr, fmt.Errorf("获取用户配置失败: %s", err.Error()))
 	}
 	sessionTTL := sec.Key("SESSION_MAX_AGE").MustInt(3600)
-	
+
 	session.Options(sessions.Options{
 		MaxAge: sessionTTL,
 		Path:   "/",
@@ -417,7 +417,7 @@ admin 用户可以查看所有 users 的所有 teams。
 普通用户能查看其他用户的 teams 列表不应当超过 Me 自身的列表范围,比如 Me 所在的 teams 为 [a, b], user 所在的 teams 为 [a, c], 那么 Me 查询该接口仅返回 [a]。
 */
 
-func (s *UserService) TeamList(c *gin.Context, userID uint, leading bool) (data any, repError any) {
+func (s *UserService) TeamList(c *gin.Context, userID uint, req *request.UserListReq) (data any, repError any) {
 	// Get current user
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
@@ -434,27 +434,14 @@ func (s *UserService) TeamList(c *gin.Context, userID uint, leading bool) (data 
 	var teams []model.Team
 	var dbErr error
 
-	//加入判断 leading 参数的逻辑 如果leading为true 则只返回用户担任leader的团队
-	if isAdmin || currentUserID == userID {
-		if leading {
-			teams, dbErr = model.TeamData.GetTeamsLedByUser(userID)
-		} else {
-			// Admin or self: get all teams of the target user
-			teams, dbErr = model.TeamData.GetTeamsByUserID(userID)
+	if isAdmin {
+		teams, dbErr = model.TeamData.GetTeamsByUserID(userID, req)
+		if dbErr != nil {
+			return nil, pkg.NewRspError(500, fmt.Errorf("获取团队列表失败: %s", dbErr.Error()))
 		}
 	} else {
 		// Normal user: get common teams
-		teams, dbErr = model.TeamData.GetCommonTeams(currentUserID, userID)
-		// If leading is true, filter the common teams to only those led by the target user
-		if leading && dbErr == nil {
-			var leadingTeams []model.Team
-			for _, team := range teams {
-				if team.LeaderID != nil && *team.LeaderID == userID {
-					leadingTeams = append(leadingTeams, team)
-				}
-			}
-			teams = leadingTeams
-		}
+		teams, dbErr = model.TeamData.GetCommonTeams(currentUserID, userID, req)
 	}
 
 	if dbErr != nil {
@@ -543,7 +530,8 @@ func (s *UserService) ProjectList(c *gin.Context, userID uint) (data any, repErr
 
 	// Format response
 	return map[string]any{
-		"projects": formatProjectList(projects),
+		"list":  formatProjectList(projects),
+		"total": len(projects),
 	}, nil
 }
 
@@ -570,13 +558,21 @@ func formatProjectList(projects []model.Project) []response.ProjectListResp {
 }
 
 // MyTeamList 我所在的团队列表
-func (s *UserService) MyTeamList(c *gin.Context, leading bool) (data any, repError any) {
+func (s *UserService) MyTeamList(c *gin.Context, leading int) (data any, repError any) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		return nil, pkg.NewRspError(400, fmt.Errorf("未获取到用户登录信息"))
 	}
 	userID := userIDInterface.(uint)
-	return s.TeamList(c, userID, leading)
+	teams, err := model.TeamData.GetByTeamList(userID, leading)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取我的团队列表失败: %s", err.Error()))
+	}
+	return map[string]any{
+		"list":  formatTeamList(teams),
+		"total": len(teams),
+	}, nil
+
 }
 
 // MyProjectList 我所在的项目列表

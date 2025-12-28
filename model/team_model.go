@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"project-manager/model/request"
 	"project-manager/pkg"
 
 	"gorm.io/gorm"
@@ -65,9 +66,6 @@ func (m *TeamModel) GetByID(id uint) (*Team, error) {
 	var dataObj Team
 	//预加载Leader信息
 	err := pkg.DB.Debug().Preload("Leader").Preload("Leader.Roles").Where("id = ?", id).First(&dataObj).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
 	return &dataObj, err
 }
 
@@ -84,9 +82,6 @@ func (m *TeamModel) GetDetailByID(id uint) (*Team, error) {
 			return db.Select("id", "name", "type", "desc")
 		}).
 		Where("id = ?", id).First(&dataObj).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
 	return &dataObj, err
 }
 
@@ -258,25 +253,49 @@ func (m *TeamModel) IsSameTeam(userID1 uint, userID2 uint) (bool, error) {
 }
 
 // GetTeamsByUserID 获取用户所在的所有 Team
-func (m *TeamModel) GetTeamsByUserID(userID uint) ([]Team, error) {
+func (m *TeamModel) GetTeamsByUserID(userID uint, req *request.UserListReq) ([]Team, error) {
 	var teams []Team
-	err := pkg.DB.Debug().Model(&Team{}).
+	query := pkg.DB.Debug().Model(&Team{}).
 		Joins("JOIN team_users ON team_users.team_id = teams.id").
 		Where("team_users.user_id = ?", userID).
-		Preload("Leader").Preload("Leader.Roles").
-		Find(&teams).Error
+		Preload("Leader").Preload("Leader.Roles")
+	if req.OrderBy != "" {
+		query = query.Order(req.OrderBy + " DESC")
+	}
+	offset := (req.Page - 1) * req.PageSize
+	err := query.Offset(offset).Limit(req.PageSize).Find(&teams).Error
 	return teams, err
 }
 
 // GetCommonTeams 获取两个用户共同所在的 Team
-func (m *TeamModel) GetCommonTeams(userID1, userID2 uint) ([]Team, error) {
+func (m *TeamModel) GetCommonTeams(userID1, userID2 uint, req *request.UserListReq) ([]Team, error) {
 	var teams []Team
-	err := pkg.DB.Debug().Model(&Team{}).
+	query := pkg.DB.Debug().Model(&Team{}).
 		Joins("JOIN team_users as tu1 ON tu1.team_id = teams.id").
 		Joins("JOIN team_users as tu2 ON tu2.team_id = teams.id").
 		Where("tu1.user_id = ? AND tu2.user_id = ?", userID1, userID2).
-		Preload("Leader").Preload("Leader.Roles").
-		Find(&teams).Error
+		Preload("Leader").Preload("Leader.Roles")
+	if req.OrderBy != "" {
+		query = query.Order(req.OrderBy + " DESC")
+	}
+	offset := (req.Page - 1) * req.PageSize
+	err := query.Offset(offset).Limit(req.PageSize).Find(&teams).Error
+	return teams, err
+}
+
+// GetByTeamList 获取用户所在的团队列表，可选择是否只返回担任Leader的团队
+func (m *TeamModel) GetByTeamList(userID uint, leading int) ([]Team, error) {
+	var teams []Team
+	query := pkg.DB.Debug().Model(&Team{}).Joins("JOIN team_users ON team_users.team_id = teams.id").Where("team_users.user_id = ?", userID)
+	//三种情况 leading=1 只返回担任leader的团队 leading=0 返回所有团队 leading=-1 返回不担任leader的团队
+	switch leading {
+	case 1:
+		query = query.Where("teams.leader_id = ?", userID)
+	case -1:
+		query = query.Where("teams.leader_id IS NULL OR teams.leader_id != ?", userID)
+	} // leading=0 不做额外过滤
+	query = query.Preload("Leader").Preload("Leader.Roles")
+	err := query.Find(&teams).Error
 	return teams, err
 }
 

@@ -99,8 +99,10 @@ func (m *UserController) Detail(c *gin.Context) {
 // 用户团队列表
 func (m *UserController) TeamList(c *gin.Context) {
 	var id, _ = strconv.Atoi(c.Param("id"))
-	Handle(c, nil, func() (any, any) {
-		return service.User.TeamList(c, uint(id), false)
+	req := new(request.UserListReq)
+	req.SetParams(c)
+	Handle(c, req, func() (any, any) {
+		return service.User.TeamList(c, uint(id), req)
 	})
 }
 
@@ -116,9 +118,13 @@ func (m *UserController) ProjectList(c *gin.Context) {
 func (m *UserController) MyTeamList(c *gin.Context) {
 	//获取参数leading bool
 	leadingStr := c.Query("leading")
-	leading := false
-	if leadingStr == "true" {
-		leading = true
+	//为空返回0 true返回1 false返回-1
+	leading := 0
+	switch leadingStr {
+	case "true":
+		leading = 1
+	case "false":
+		leading = -1
 	}
 	Handle(c, nil, func() (any, any) {
 		return service.User.MyTeamList(c, leading)

@@ -412,7 +412,7 @@ func (s *TeamService) List(c *gin.Context, req any) (data any, repError any) {
 	count := len(teams)
 	return map[string]any{
 		"list":  teams,
-		"count": count,
+		"total": count,
 	}, nil
 }
 
@@ -453,7 +453,7 @@ func (s *TeamService) ListUsers(c *gin.Context, teamID uint, req any) (data any,
 	count := len(users)
 	return map[string]any{
 		"list":  users,
-		"count": count,
+		"total": count,
 	}, nil
 }
 
@@ -541,6 +541,6 @@ func (s *TeamService) ListProjects(c *gin.Context, teamID uint, req any) (data a
 	count := len(projects)
 	return map[string]any{
 		"list":  projects,
-		"count": count,
+		"total": count,
 	}, nil
 }

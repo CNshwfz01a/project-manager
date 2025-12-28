@@ -72,8 +72,8 @@ func (s *ProjectService) AddUserToProject(c *gin.Context, req any) (data any, re
 		}
 
 		// 是 Team Leader，检查目标用户是否可见
-		// Team Leader 可以看到他 lead 的所有 team 中的用户
-		teamsLedByUser, err := model.TeamData.GetTeamsLedByUser(currentUserID)
+		// Team Leader 可以看到所有自己所在的team的用户
+		teamsLedByUser, err := model.TeamData.GetByTeamList(currentUserID, 0)
 		if err != nil {
 			return nil, pkg.NewRspError(500, fmt.Errorf("获取领导的团队失败: %v", err))
 		}
@@ -83,23 +83,23 @@ func (s *ProjectService) AddUserToProject(c *gin.Context, req any) (data any, re
 			teamIDs = append(teamIDs, team.ID)
 		}
 
-		// visibleUserIDs, err := model.TeamData.GetUsersInTeams(teamIDs)
-		// if err != nil {
-		// 	return nil, pkg.NewRspError(500, fmt.Errorf("获取可见用户失败: %v", err))
-		// }
+		visibleUserIDs, err := model.TeamData.GetUsersInTeams(teamIDs)
+		if err != nil {
+			return nil, pkg.NewRspError(500, fmt.Errorf("获取可见用户失败: %v", err))
+		}
 
-		// // 检查目标用户是否在可见用户列表中
-		// isVisible := false
-		// for _, visibleUserID := range visibleUserIDs {
-		// 	if visibleUserID == r.UserID {
-		// 		isVisible = true
-		// 		break
-		// 	}
-		// }
+		// 检查目标用户是否在可见用户列表中
+		isVisible := false
+		for _, visibleUserID := range visibleUserIDs {
+			if visibleUserID == r.UserID {
+				isVisible = true
+				break
+			}
+		}
 
-		// if !isVisible {
-		// 	return nil, pkg.NewUnauthorizedError()
-		// }
+		if !isVisible {
+			return nil, pkg.NewUnauthorizedError()
+		}
 	}
 
 	//添加用户到项目
@@ -427,7 +427,7 @@ func (s *ProjectService) GetProjectUsers(c *gin.Context, projectID int, req any)
 	count := len(users)
 	return map[string]any{
 		"list":  users,
-		"count": count,
+		"total": count,
 	}, nil
 }
 
