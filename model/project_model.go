@@ -136,3 +136,31 @@ func (m *ProjectModel) GetCommonProjects(userID1, userID2 uint) ([]Project, erro
 		Find(&projects).Error
 	return projects, err
 }
+
+// GetByUserProjectList 获取用户所在的项目列表，支持排序和分页
+func (m *ProjectModel) GetByUserProjectList(userID uint, orderBy string, page int, pageSize int, name string, teamIDs []int) ([]Project, error) {
+	var projects []Project
+	query := pkg.DB.Debug().Model(&Project{}).
+		Joins("JOIN project_users ON project_users.project_id = projects.id").
+		Where("project_users.user_id = ?", userID)
+	//按名称搜索
+	if name != "" {
+		query = query.Where("projects.name LIKE ?", "%"+name+"%")
+	}
+	//按团队ID筛选
+	if len(teamIDs) > 0 {
+		query = query.Joins("JOIN team_projects ON team_projects.project_id = projects.id").
+			Where("team_projects.team_id IN ?", teamIDs)
+	}
+	//排序
+	if orderBy != "" {
+		query = query.Order(orderBy)
+	}
+	//分页
+	if page > 0 && pageSize > 0 {
+		offset := (page - 1) * pageSize
+		query = query.Offset(offset).Limit(pageSize)
+	}
+	err := query.Find(&projects).Error
+	return projects, err
+}

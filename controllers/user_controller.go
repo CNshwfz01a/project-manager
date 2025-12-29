@@ -133,8 +133,10 @@ func (m *UserController) MyTeamList(c *gin.Context) {
 
 // MyProjectList 我所在的项目列表
 func (m *UserController) MyProjectList(c *gin.Context) {
-	Handle(c, nil, func() (any, any) {
-		return service.User.MyProjectList(c)
+	req := new(request.UserMyProjectListReq)
+	req.SetParams(c)
+	Handle(c, req, func() (any, any) {
+		return service.User.MyProjectList(c, req)
 	})
 }
 

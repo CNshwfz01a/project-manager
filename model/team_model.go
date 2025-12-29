@@ -223,10 +223,17 @@ func (m *TeamModel) ListProjects(teamID uint, meID uint, userID uint, orderBy st
 		query = query.Where("projects.name LIKE ?", "%"+name+"%")
 	}
 	//过滤partIn
-	if partIn && userID != 0 {
-		query = query.Joins("JOIN project_users AS pu2 ON pu2.project_id = projects.id").
-			Where("pu2.user_id = ?", userID)
+	if userID != 0 {
+		if partIn {
+			query = query.Joins("JOIN project_users AS pu2 ON pu2.project_id = projects.id").
+				Where("pu2.user_id = ?", userID)
+		} else {
+			//查询
+			query = query.Joins("LEFT JOIN project_users AS pu2 ON pu2.project_id = projects.id AND pu2.user_id = ?", userID).
+				Where("pu2.user_id IS NULL")
+		}
 	}
+
 	//排序
 	if orderBy != "" {
 		query = query.Order(orderBy)

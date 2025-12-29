@@ -8,10 +8,11 @@ import (
 	"project-manager/middleware"
 )
 
-func InitAuditRoutes(r *gin.Engine) {
-	auditGroup := r.Group("/api/audits")
+func InitAuditRoutes(r *gin.RouterGroup) gin.IRoutes {
+	auditGroup := r.Group("/audits")
 	{
 		//使用鉴权中间件
 		auditGroup.GET("", controllers.Audit.List).Use(middleware.AuthRequired())
 	}
+	return r
 }

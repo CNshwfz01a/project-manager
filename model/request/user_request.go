@@ -32,9 +32,9 @@ type UserListReq struct {
 	//搜索关键词name 包含username和nickname
 	Name string `json:"name" form:"name" validate:"omitempty"`
 	//数组team_id
-	TeamIDs []int `json:"team_id" form:"team_id[]" validate:"omitempty,dive,gt=0"`
+	TeamIDs []int `json:"team_id" form:"team_id" validate:"omitempty,dive,gt=0"`
 	//数组role_name
-	RoleNames []string `json:"role_name" form:"role_name[]" validate:"omitempty,dive,required"`
+	RoleNames []string `json:"role_name" form:"role_name" validate:"omitempty,dive,required"`
 }
 
 // 设置默认值
@@ -74,4 +74,44 @@ type UserUpdateProfileReq struct {
 	Email    string `json:"email" validate:"required,email,max=100"`
 	Nickname string `json:"nickname" validate:"omitempty,max=50"`
 	Logo     string `json:"logo" validate:"omitempty,url,max=255"`
+}
+
+type UserMyProjectListReq struct {
+	//排序字段enum "created_at" "updated_at"
+	OrderBy string `json:"order_by" form:"order_by" validate:"omitempty,oneof=created_at updated_at"`
+	//page 不传则默认1
+	Page int `json:"page" form:"page" validate:"omitempty,min=1"`
+	//page size 不传则默认10
+	PageSize int `json:"page_size" form:"page_size" validate:"omitempty,min=1,max=100"`
+	//搜索关键词name 包含项目名称
+	Name string `json:"name" form:"name" validate:"omitempty"`
+	//数组team_id
+	TeamIDs []int `json:"team_id" form:"team_id" validate:"omitempty,dive,gt=0"`
+}
+
+// 设置默认值
+// SetDefaults 设置默认值
+func (r *UserMyProjectListReq) SetDefaults() {
+	if r.Page == 0 {
+		r.Page = 1
+	}
+	if r.PageSize == 0 {
+		r.PageSize = 20
+	}
+}
+
+// SetParams 设置查询参数
+func (r *UserMyProjectListReq) SetParams(c *gin.Context) {
+	r.OrderBy = c.DefaultQuery("order_by", r.OrderBy)
+	r.Page, _ = strconv.Atoi(c.DefaultQuery("page", strconv.Itoa(r.Page)))
+	r.PageSize, _ = strconv.Atoi(c.DefaultQuery("page_size", strconv.Itoa(r.PageSize)))
+	r.Name = c.DefaultQuery("name", r.Name)
+	//如果有TeamIDs参数
+	teamIDStrs, _ := c.GetQueryArray("team_id[]") //如果没有该参数则返回空切片
+	r.TeamIDs = make([]int, 0, len(teamIDStrs))
+	for _, idStr := range teamIDStrs {
+		if id, err := strconv.Atoi(idStr); err == nil {
+			r.TeamIDs = append(r.TeamIDs, id)
+		}
+	}
 }

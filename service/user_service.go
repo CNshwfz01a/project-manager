@@ -576,13 +576,20 @@ func (s *UserService) MyTeamList(c *gin.Context, leading int) (data any, repErro
 }
 
 // MyProjectList 我所在的项目列表
-func (s *UserService) MyProjectList(c *gin.Context) (data any, repError any) {
+func (s *UserService) MyProjectList(c *gin.Context, req *request.UserMyProjectListReq) (data any, repError any) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		return nil, pkg.NewRspError(400, fmt.Errorf("未获取到用户登录信息"))
 	}
 	userID := userIDInterface.(uint)
-	return s.ProjectList(c, userID)
+	projects, err := model.ProjectData.GetByUserProjectList(userID, req.OrderBy, req.Page, req.PageSize, req.Name, req.TeamIDs)
+	if err != nil {
+		return nil, pkg.NewRspError(500, fmt.Errorf("获取我的项目列表失败: %s", err.Error()))
+	}
+	return map[string]any{
+		"list":  formatProjectList(projects),
+		"total": len(projects),
+	}, nil
 }
 
 // LeaveTeam 退出团队
