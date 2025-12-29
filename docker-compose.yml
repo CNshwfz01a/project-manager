@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: pm-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: "project_manager"
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    container_name: pm-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    environment:
+      - RUN_MODE=debug
+    volumes:
+      - ./conf/app.ini:/root/conf/app.ini
+    command: ["/bin/sh", "-c", "sed -i 's/HOST = 127.0.0.1:3306/HOST = pm-mysql:3306/g' conf/app.ini && ./project-manager"]
+
+  test-runner:
+    image: golang:1.25.3
+    container_name: pm-test-runner
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      - CGO_ENABLED=0
+      - API_HOST=http://pm-app:8086
+    command: >
+      /bin/sh -c "
+      go mod download &&
+      go install github.com/onsi/ginkgo/v2/ginkgo@v2.27.3 &&
+      echo 'Running Conformance Tests...' &&
+      ginkgo -v test/conformance/... &&
+      echo 'Running E2E Tests...' &&
+      ginkgo -v test/e2e/..."

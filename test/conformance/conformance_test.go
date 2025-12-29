@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"os"
 	"testing"
 
 	"github.com/onsi/ginkgo/v2"
@@ -16,7 +17,11 @@ import (
 func TestConformance(t *testing.T) {
 	// do your init jobs, e.g. deploy service, database, prepare data
 
-	var _ = sdk.NewSDK("http://127.0.0.1:8086") // init sdk with your app server address
+	host := os.Getenv("API_HOST")
+	if host == "" {
+		host = "http://127.0.0.1:8086"
+	}
+	var _ = sdk.NewSDK(host) // init sdk with your app server address
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	// framework.GetFramework(t).DeployComponents()

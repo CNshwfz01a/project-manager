@@ -24,7 +24,7 @@ func runServer(r *gin.Engine) {
 		c.JSON(200, gin.H{"message": "欢迎使用项目管理器 服务运行正常"})
 	})
 	// r.Run("127.0.0.1:8086")
-	if err := r.Run("127.0.0.1:8086"); err != nil {
+	if err := r.Run(":8086"); err != nil {
 		panic(err)
 	}
 }
