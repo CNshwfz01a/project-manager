@@ -106,7 +106,7 @@ func (m *TeamController) RemoveUserFromTeam(c *gin.Context) {
 	//读url的user_id参数
 	var userID, _ = strconv.Atoi(c.Param("user_id"))
 	Handle(c, nil, func() (any, any) {
-		return service.Team.RemoveUserFromTeam(c, uint(teamID), uint(userID))
+		return service.Team.RemoveUserFromTeam(c, uint(userID), uint(teamID))
 	})
 }
 

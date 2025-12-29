@@ -20,6 +20,11 @@ type Team struct {
 	UpdatedAt int64          `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
+type TeamUser struct {
+	TeamID uint `json:"team_id"`
+	UserID uint `json:"user_id"`
+}
+
 type TeamProject struct {
 	ID        uint     `json:"id" gorm:"primarykey"`
 	TeamID    uint     `json:"team_id" gorm:""`
@@ -48,6 +53,16 @@ func (m *TeamModel) IsTeamLeader(userID uint, teamID uint) (bool, error) {
 		return false, nil
 	}
 	return true, err
+}
+
+// IsUserOtherTeamLeader
+func (m *TeamModel) IsUserOtherTeamLeader(userID uint, excludeTeamID uint) (bool, error) {
+	var count int64
+	err := pkg.DB.Debug().Model(&Team{}).Where("leader_id = ? AND id != ?", userID, excludeTeamID).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // IsUserInTeam
@@ -182,19 +197,46 @@ func (m *TeamModel) ListUsersByTeamID(teamID uint, orderBy string, page int, pag
 
 // DeleteTeam ...
 func (m *TeamModel) DeleteTeam(teamID uint) error {
-	//删除team_projects关联数据
-	err := pkg.DB.Debug().Where("team_id = ?", teamID).Delete(&TeamProject{}).Error
-	if err != nil {
-		return err
-	}
-	//删除team_users关联数据
-	err = pkg.DB.Debug().Table("team_users").Where("team_id = ?", teamID).Delete(nil).Error
-	if err != nil {
-		return err
-	}
-	//删除team数据
-	err = pkg.DB.Debug().Where("id = ?", teamID).Delete(&Team{}).Error
-	return err
+	return pkg.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. 获取该团队下的所有项目ID
+		var projectIDs []uint
+		if err := tx.Model(&TeamProject{}).Where("team_id = ?", teamID).Pluck("project_id", &projectIDs).Error; err != nil {
+			return err
+		}
+
+		// 2. 删除项目相关数据
+		if len(projectIDs) > 0 {
+			// 删除 project_users 关联 (引用 Project)
+			if err := tx.Table("project_users").Where("project_id IN ?", projectIDs).Delete(nil).Error; err != nil {
+				return err
+			}
+			// 删除 team_projects 关联 (引用 Project 和 Team)
+			if err := tx.Where("team_id = ?", teamID).Delete(&TeamProject{}).Error; err != nil {
+				return err
+			}
+			// 删除 projects
+			if err := tx.Where("id IN ?", projectIDs).Delete(&Project{}).Error; err != nil {
+				return err
+			}
+		} else {
+			// 如果没有项目，直接删除 team_projects (防御性)
+			if err := tx.Where("team_id = ?", teamID).Delete(&TeamProject{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// 3. 删除 team_users 关联
+		if err := tx.Table("team_users").Where("team_id = ?", teamID).Delete(nil).Error; err != nil {
+			return err
+		}
+
+		// 4. 删除 team
+		if err := tx.Where("id = ?", teamID).Delete(&Team{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // RemoveUserFromTeam ...

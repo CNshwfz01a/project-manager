@@ -54,6 +54,15 @@ func (s *TeamService) AddUserToTeam(c *gin.Context, req any) (data any, repError
 	if !ok {
 		return nil, ReqAssertErr
 	}
+	//查询team和user是否存在
+	_, err := model.TeamData.GetByID(r.TeamID)
+	if err == gorm.ErrRecordNotFound {
+		return nil, pkg.NewNotFoundError()
+	}
+	_, err = model.UserData.GetByID(r.UserID)
+	if err == gorm.ErrRecordNotFound {
+		return nil, pkg.NewNotFoundError()
+	}
 	//获取权限 admin可以添加任意user team leader可以添加本team的user 其他403
 	isAdmin, repError := model.GetRoleByName("admin", c)
 	if repError != nil {
@@ -68,16 +77,37 @@ func (s *TeamService) AddUserToTeam(c *gin.Context, req any) (data any, repError
 		if !isLeader {
 			return nil, pkg.NewUnauthorizedError()
 		}
+		// 是 Team Leader，检查目标用户是否可见
+		// Team Leader 可以看到所有自己所在的team的用户
+		teamsLedByUser, err := model.TeamData.GetByTeamList(userID, 0)
+		if err != nil {
+			return nil, pkg.NewRspError(500, fmt.Errorf("获取领导的团队失败: %v", err))
+		}
+
+		var teamIDs []uint
+		for _, team := range teamsLedByUser {
+			teamIDs = append(teamIDs, team.ID)
+		}
+
+		visibleUserIDs, err := model.TeamData.GetUsersInTeams(teamIDs)
+		if err != nil {
+			return nil, pkg.NewRspError(500, fmt.Errorf("获取可见用户失败: %v", err))
+		}
+
+		// 检查目标用户是否在可见用户列表中
+		isVisible := false
+		for _, visibleUserID := range visibleUserIDs {
+			if visibleUserID == r.UserID {
+				isVisible = true
+				break
+			}
+		}
+
+		if !isVisible {
+			return nil, pkg.NewUnauthorizedError()
+		}
 	}
-	//查询team和user是否存在
-	_, err := model.TeamData.GetByID(r.TeamID)
-	if err == gorm.ErrRecordNotFound {
-		return nil, pkg.NewNotFoundError()
-	}
-	_, err = model.UserData.GetByID(r.UserID)
-	if err == gorm.ErrRecordNotFound {
-		return nil, pkg.NewNotFoundError()
-	}
+
 	//添加user到team
 	err = model.TeamData.AddUserToTeam(r.UserID, r.TeamID)
 	if err != nil {
@@ -152,7 +182,7 @@ func (s *TeamService) Patch(c *gin.Context, teamID uint, req any) (data any, rep
 		case "replace":
 			switch opItem.Path {
 			case "/leader":
-				err = ReplaceLeader(&teamObj, opItem.Value, c)
+				err = ReplaceLeader(teamObj, opItem.Value, c)
 				if err != nil {
 					return nil, err
 				}
@@ -166,7 +196,7 @@ func (s *TeamService) Patch(c *gin.Context, teamID uint, req any) (data any, rep
 		}
 	}
 	//保存teamObj
-	err = pkg.DB.Save(&teamObj).Error
+	err = pkg.DB.Save(teamObj).Error
 	if err != nil {
 		return nil, pkg.NewRspError(500, fmt.Errorf("保存团队失败: %v", err))
 	}
@@ -176,6 +206,124 @@ func (s *TeamService) Patch(c *gin.Context, teamID uint, req any) (data any, rep
 		return nil, pkg.NewRspError(500, fmt.Errorf("获取团队失败: %v", err))
 	}
 	return teamObj, nil
+}
+
+// ReplaceLeader ...
+func ReplaceLeader(teamObj *model.Team, value any, c *gin.Context) error {
+	//判断权限 admin可以修改任意team leader可以修改本team的其他user 其他403
+	isAdmin, adminErr := model.GetRoleByName("admin", c)
+	if adminErr != nil {
+		return adminErr.(error)
+	}
+	//判断leaderID和登录用户的id是否相同
+	UserID := c.GetUint("user_id")
+	if !isAdmin {
+		isLeader, repError := model.TeamData.IsTeamLeader(UserID, (teamObj).ID)
+		if repError != nil {
+			return repError
+		}
+		if !isLeader {
+			return pkg.NewUnauthorizedError()
+		}
+	}
+	//判断value是否为null
+	if value == nil {
+		teamObj.LeaderID = nil
+		teamObj.Leader = nil
+		//如果此用户不在担任其他team的leader 则移除team_lead角色
+		otherLeader, err := model.TeamData.IsUserOtherTeamLeader(UserID, teamObj.ID)
+		if err != nil {
+			return err
+		}
+		if !otherLeader {
+			repError := RemoveTeamLeadRole(UserID)
+			if repError != nil {
+				return repError
+			}
+		}
+	} else {
+		//如果之前的leader不再担任其他team的leader 则移除team_lead角色
+		if teamObj.LeaderID != nil {
+			otherLeader, err := model.TeamData.IsUserOtherTeamLeader(*teamObj.LeaderID, teamObj.ID)
+			if err != nil {
+				return err
+			}
+			if !otherLeader {
+				err := RemoveTeamLeadRole(*teamObj.LeaderID)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		valMap, ok := value.(map[string]interface{})
+		if !ok {
+			//返回error类型错误
+			return pkg.NewRspError(500, fmt.Errorf("无效的负责人值"))
+		}
+		idFloat, ok := valMap["id"].(float64)
+		if !ok {
+			return pkg.NewRspError(500, fmt.Errorf("无效的负责人值"))
+		}
+		leaderID := uint(idFloat)
+		//此部分逻辑可以在e2e测试时覆盖到
+		if (UserID == leaderID) && !isAdmin {
+			//400
+			return pkg.NewRspError(400, fmt.Errorf("不可修改自己为团队负责人"))
+		}
+		//检查leaderID是否存在
+		targetUser, err := model.UserData.GetByID(leaderID)
+		if err == gorm.ErrRecordNotFound {
+			return pkg.NewNotFoundError()
+		} else if err != nil {
+			return err
+		}
+		//判断leaderID是否在team内
+		isInTeam, repError := model.TeamData.IsUserInTeam(leaderID, (teamObj).ID)
+		if repError != nil {
+			return repError
+		}
+		if !isInTeam {
+			//404
+			return pkg.NewNotFoundError()
+		}
+		teamObj.LeaderID = &leaderID
+		teamObj.Leader = nil
+		//判断当前用户是否有team leader角色
+		hasRole := false
+		for _, role := range targetUser.Roles {
+			if role.Name == "team leader" {
+				hasRole = true
+				break
+			}
+		}
+		if !hasRole {
+			//赋予team_lead角色
+			var role model.Role
+			err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
+			}
+			err = pkg.DB.Model(targetUser).Association("Roles").Append(&role)
+			if err != nil {
+				return pkg.NewRspError(500, fmt.Errorf("添加角色失败: %v", err))
+			}
+		}
+	}
+	return nil
+}
+
+// 移除 team lead角色
+func RemoveTeamLeadRole(userID uint) error {
+	var role model.Role
+	err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
+	if err != nil {
+		return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
+	}
+	err = pkg.DB.Model(&model.User{ID: userID}).Association("Roles").Delete(&role)
+	if err != nil {
+		return pkg.NewRspError(500, fmt.Errorf("移除角色失败: %v", err))
+	}
+	return nil
 }
 
 // Update ...
@@ -257,100 +405,6 @@ func (s *TeamService) Delete(c *gin.Context, teamID uint) (data any, repError an
 		return nil, pkg.NewRspError(500, fmt.Errorf("删除团队关联数据失败: %v", err))
 	}
 	return nil, nil
-}
-
-// ReplaceLeader ...
-func ReplaceLeader(teamObj **model.Team, value any, c *gin.Context) error {
-	//判断权限 admin可以修改任意team leader可以修改本team的其他user 其他403
-	isAdmin, adminErr := model.GetRoleByName("admin", c)
-	if adminErr != nil {
-		return adminErr.(error)
-	}
-	//判断leaderID和登录用户的id是否相同
-	UserID := c.GetUint("user_id")
-	if !isAdmin {
-		isLeader, repError := model.TeamData.IsTeamLeader(UserID, (*teamObj).ID)
-		if repError != nil {
-			return repError
-		}
-		if !isLeader {
-			return pkg.NewUnauthorizedError()
-		}
-	}
-	//判断value是否为null
-	if value == nil {
-		(*teamObj).LeaderID = nil
-		//如果此用户不在担任其他team的leader 则移除team_lead角色
-		var count int64
-		pkg.DB.Model(&model.Team{}).Where("leader_id = ?", UserID).Count(&count)
-		if count == 0 {
-			//移除team_lead角色
-			var role model.Role
-			err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
-			if err != nil {
-				return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
-			}
-			err = pkg.DB.Model(&model.User{ID: UserID}).Association("Roles").Delete(&role)
-			if err != nil {
-				return pkg.NewRspError(500, fmt.Errorf("移除角色失败: %v", err))
-			}
-		}
-	} else {
-		valMap, ok := value.(map[string]interface{})
-		if !ok {
-			//返回error类型错误
-			return pkg.NewRspError(500, fmt.Errorf("无效的负责人值"))
-		}
-		idFloat, ok := valMap["id"].(float64)
-		if !ok {
-			return pkg.NewRspError(500, fmt.Errorf("无效的负责人值"))
-		}
-		leaderID := uint(idFloat)
-		//此部分逻辑可以在e2e测试时覆盖到
-		// if (UserID == leaderID) && !isAdmin {
-		// 	//400
-		// 	return pkg.NewRspError(400, fmt.Errorf("不可修改自己为团队负责人"))
-		// }
-		//检查leaderID是否存在
-		targetUser, err := model.UserData.GetByID(leaderID)
-		if err == gorm.ErrRecordNotFound {
-			return pkg.NewNotFoundError()
-		} else if err != nil {
-			return err
-		}
-		//判断leaderID是否在team内
-		isInTeam, repError := model.TeamData.IsUserInTeam(leaderID, (*teamObj).ID)
-		if repError != nil {
-			return repError
-		}
-		if !isInTeam {
-			//404
-			return pkg.NewNotFoundError()
-		}
-		(*teamObj).LeaderID = &leaderID
-		//判断当前用户是否有team leader角色
-		hasRole := false
-		for _, role := range targetUser.Roles {
-			if role.Name == "team leader" {
-				hasRole = true
-				break
-			}
-		}
-		if !hasRole {
-			//赋予team_lead角色
-			var role model.Role
-			err := pkg.DB.Where("name = ?", "team leader").First(&role).Error
-			if err != nil {
-				return pkg.NewRspError(500, fmt.Errorf("获取角色失败: %v", err))
-			}
-			err = pkg.DB.Model(targetUser).Association("Roles").Append(&role)
-			if err != nil {
-				return pkg.NewRspError(500, fmt.Errorf("添加角色失败: %v", err))
-			}
-		}
-	}
-
-	return nil
 }
 
 // Get ...
@@ -458,7 +512,7 @@ func (s *TeamService) ListUsers(c *gin.Context, teamID uint, req any) (data any,
 }
 
 // RemoveUserFromTeam ...
-func (s *TeamService) RemoveUserFromTeam(c *gin.Context, teamID uint, userID uint) (data any, repError any) {
+func (s *TeamService) RemoveUserFromTeam(c *gin.Context, userID uint, teamID uint) (data any, repError any) {
 	//判断team和user是否存在
 	Team, err := model.TeamData.GetByID(teamID)
 	if err == gorm.ErrRecordNotFound {
@@ -473,8 +527,8 @@ func (s *TeamService) RemoveUserFromTeam(c *gin.Context, teamID uint, userID uin
 		return nil, repError
 	}
 	if !isAdmin {
-		UserID := c.GetUint("user_id")
-		isLeader, repError := model.TeamData.IsTeamLeader(UserID, teamID)
+		CurrentUserID := c.GetUint("user_id")
+		isLeader, repError := model.TeamData.IsTeamLeader(CurrentUserID, teamID)
 		if repError != nil {
 			return nil, repError
 		}
@@ -491,13 +545,14 @@ func (s *TeamService) RemoveUserFromTeam(c *gin.Context, teamID uint, userID uin
 		}
 	}
 	//执行移除
-	err = model.TeamData.RemoveUserFromTeam(userID, teamID)
+	err = model.TeamData.RemoveUserFromTeam(teamID, userID)
 	if err != nil {
 		return nil, pkg.NewRspError(500, fmt.Errorf("从团队移除用户失败: %v", err))
 	}
 	//如果被移除的 User 是该 Team 的 Leader，移除后 Leader 职位将被清空，该 Team 将无 Leader。
 	if Team.LeaderID != nil && *Team.LeaderID == userID {
 		Team.LeaderID = nil
+		Team.Leader = nil
 		err = pkg.DB.Save(&Team).Error
 		if err != nil {
 			return nil, pkg.NewRspError(500, fmt.Errorf("清空团队负责人失败: %v", err))

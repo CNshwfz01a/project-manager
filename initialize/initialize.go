@@ -21,6 +21,7 @@ func InitDB() error {
 		&model.User{},
 		&model.Role{},
 		&model.Team{},
+		&model.TeamUser{},
 		&model.TeamProject{},
 		&model.Project{},
 		&model.Audit{},
