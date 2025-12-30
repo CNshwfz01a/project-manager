@@ -2,6 +2,7 @@ package setting
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/go-ini/ini"
@@ -29,7 +30,17 @@ func init() {
 }
 
 func LoadBase() {
-	RunMode = Cfg.Section("").Key("RUN_MODE").MustString("debug")
+	// 优先使用环境变量 RUN_MODE（便于容器或运行时覆盖），否则从配置文件读取
+	if m := os.Getenv("RUN_MODE"); m != "" {
+		RunMode = m
+		return
+	}
+	sec, err := Cfg.GetSection("server")
+	if err != nil {
+		RunMode = Cfg.Section("").Key("RUN_MODE").MustString("debug")
+		return
+	}
+	RunMode = sec.Key("RUN_MODE").MustString("debug")
 }
 
 func LoadServer() {

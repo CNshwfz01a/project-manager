@@ -3,6 +3,7 @@ package main
 
 import (
 	"project-manager/initialize"
+	"project-manager/pkg/setting"
 	"project-manager/routes"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// 根据配置设置 Gin 运行模式（debug/release/test）
+	gin.SetMode(setting.RunMode)
 	//初始化路由
 	r := routes.InitRoutes()
 	//运行服务器

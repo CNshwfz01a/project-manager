@@ -23,10 +23,10 @@ services:
     ports:
       - "8086:8086"
     environment:
-      - RUN_MODE=debug
+      - RUN_MODE=release
     volumes:
-        - ./conf:/root/conf
-      command: ["/bin/sh", "-c", "sed -i 's/HOST = 127.0.0.1:3306/HOST = pm-mysql:3306/g' /root/conf/app.ini && ./project-manager"]
+      - ./conf:/root/conf
+    command: ["/bin/sh", "-c", "sed -i 's/HOST = 127.0.0.1:3306/HOST = pm-mysql:3306/g' /root/conf/app.ini && ./project-manager"]
 
   test-runner:
     image: golang:1.25.3
@@ -40,7 +40,6 @@ services:
     environment:
       - CGO_ENABLED=0
       - API_HOST=http://pm-app:8086
-      - APP_MODE=releas
     command: >
       /bin/sh -c "
       go mod download &&
